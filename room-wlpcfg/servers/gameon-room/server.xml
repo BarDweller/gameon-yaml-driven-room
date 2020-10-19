@@ -1,0 +1,65 @@
+<server description="Game On! Room Service">
+
+    <!-- Enable features -->
+    <featureManager>
+        <feature>websocket-1.1</feature>
+        <feature>localConnector-1.0</feature>
+        <feature>jaxrs-2.0</feature>
+        <feature>cdi-1.2</feature>
+        <feature>jsonp-1.0</feature>
+        <feature>ssl-1.0</feature>
+        <feature>concurrent-1.0</feature>
+        <feature>appSecurity-2.0</feature>
+        <feature>mpMetrics-1.1</feature>
+  </featureManager>
+
+  <mpMetrics authentication="false"/>
+
+  <!-- To access this server from a remote client add a host attribute to the following element, e.g. host="*"  -->
+  <httpEndpoint host="*" httpPort="9080" httpsPort="9443" id="defaultHttpEndpoint"/>
+
+  <keyStore id="defaultKeyStore" location="key.jks"  password="testOnlyKeystore"/>
+  <keyStore id="defaultTrustStore" location="truststore.jks" password="truststore"/>
+
+  <sslDefault sslRef="DefaultSSLSettings" />
+  <ssl id="DefaultSSLSettings" keyStoreRef="defaultKeyStore" trustStoreRef="defaultTrustStore" />
+
+  <jndiEntry jndiName="mapUrl" value="${env.MAP_SERVICE_URL}"/>
+  <jndiEntry jndiName="mapHealthUrl" value="${env.MAP_HEALTH_SERVICE_URL}"/>
+  <!-- Our key that allows us to register rooms -->
+  <jndiEntry jndiName="mapApiKey" value="${env.MAP_KEY}"/>
+
+  <jndiEntry jndiName="recRoomUrl" value="${env.RECROOM_SERVICE_URL}"/>
+
+  <jndiEntry jndiName="systemId" value="${env.SYSTEM_ID}"/>
+
+  <!-- Tokens used by the rooms to validate / authenticate connections with the mediator -->
+  <!-- <jndiEntry jndiName="RecRoom_token" value="kayleigh"/> -->
+
+  <!-- kafka config.. (userid/password is used by config dropin, not needed as jndi var)-->
+  <jndiEntry jndiName="kafkaUrl" value="${env.KAFKA_SERVICE_URL}"/>
+
+  <!-- Executor used by RoomRegistration because it can't use CDI -->
+  <managedScheduledExecutorService jndiName="concurrent/execSvc"/>
+
+  <!-- turn off polling -->
+  <config updateTrigger="mbean" />
+  <applicationMonitor dropinsEnabled="false" updateTrigger="mbean"/>
+
+  <logging traceSpecification="*=info:org.gameontext.*=all:net.wasdev.*=all"/>
+
+  <!-- This is required to prevent the web apps from being lazily loaded -->
+  <webContainer deferServletLoad="false"/>
+  <!-- The JVM can get confused about available CPU in virtualized envs -->
+  <executor coreThreads="5"  />
+
+  <webApplication id="room-app" location="room-app.war" name="room-app">
+    <classloader apiTypeVisibility="api,ibm-api,spec,stable,third-party"/>
+  </webApplication>
+
+  <jndiEntry jndiName="developmentMode" value="${env.GAMEON_MODE}"/>
+  <jndiEntry jndiName="targetPlatform" value="${env.TARGET_PLATFORM}"/>
+  <include location="${env.TARGET_PLATFORM}-config.xml" optional="true" />
+  <include location="${env.TARGET_PLATFORM}-messageHub.xml" optional="true" />
+
+</server>

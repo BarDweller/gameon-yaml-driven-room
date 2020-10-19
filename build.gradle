@@ -1,0 +1,13 @@
+allprojects {
+    group = 'org.gameontext'
+    version = '1.0'
+
+    repositories {
+        mavenCentral()
+        maven { url "https://jitpack.io" }
+    }
+}
+
+task image(type:Exec) {
+  commandLine 'docker', 'build', '-t', 'gameontext/gameon-room', 'room-wlpcfg'
+}
