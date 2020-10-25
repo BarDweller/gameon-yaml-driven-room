@@ -165,7 +165,7 @@ Conditions can use `==` and `!=` for comparisons. All comparisons are actually s
 
 Var names / state is substituted into the expression, and then the expression is compared. eg, `{id}==fred` becomes `john==fred` which would fail.
 
-Conditions can be combined with && and || there is no support for () .. expression aggregation is left to right, eg, `A==1 && B==2 || C==3` becomes `(A==1 && B==2) || C==3`,  and `A==1 && B==2 || C==3 && D==4` becomes ``((A==1 && B==2) || C==3) && D==4`
+Conditions can be combined with && and || there is no support for () .. expression aggregation is left to right, eg, `A==1 && B==2 || C==3` becomes `(A==1 && B==2) || C==3`,  and `A==1 && B==2 || C==3 && D==4` becomes `((A==1 && B==2) || C==3) && D==4`
 
 A special condition value `unmatched` can be used to say 'use this action, when no other actions matched'. `unmatched` cannot be combined with other expressions.
 `unmatched` actions will  __ONLY__  be considered as selectable if no other actions matched. There can be multiple actions declared with 'unmatched', round robin rules apply as normal.
