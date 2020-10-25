@@ -4,31 +4,50 @@ import java.util.List;
 import java.util.Map;
 
 public class Story {
-	private Map<String, Object> vars;
-	private List<Command> commands;
-	private List<Room> rooms;
+  private Map<String, Object> vars;
+  private Map<String, String> commandDescriptions;
+  private String id;
+  private List<Command> commands;
+  private List<Room> rooms;
 
-	public Map<String, Object> getVars() {
-		return vars;
-	}
+  public Map<String, Object> getVars() {
+    return vars;
+  }
 
-	public void setVars(Map<String, Object> vars) {
-		this.vars = vars;
-	}
+  public void setVars(Map<String, Object> vars) {
+    this.vars = vars;
+  }
+  
 
-	public List<Command> getCommands() {
-		return commands;
-	}
+  public Map<String, String> getCommanddescriptions() {
+    return commandDescriptions;
+  }
 
-	public void setCommands(List<Command> commands) {
-		this.commands = commands;
-	}
+  public void setCommanddescriptions(Map<String, String> commandDescriptions) {
+    this.commandDescriptions = commandDescriptions;
+  }
 
-	public List<Room> getRooms() {
-		return rooms;
-	}
+  public String getId() {
+    return id;
+  }
 
-	public void setRooms(List<Room> rooms) {
-		this.rooms = rooms;
-	}
+  public void setId(String id) {
+    this.id = id;
+  }
+
+  public List<Command> getCommands() {
+    return commands;
+  }
+
+  public void setCommands(List<Command> commands) {
+    this.commands = commands;
+  }
+
+  public List<Room> getRooms() {
+    return rooms;
+  }
+
+  public void setRooms(List<Room> rooms) {
+    this.rooms = rooms;
+  }
 }

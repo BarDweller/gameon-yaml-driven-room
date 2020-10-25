@@ -44,7 +44,7 @@
 
   <!-- turn off polling -->
   <config updateTrigger="mbean" />
-  <applicationMonitor dropinsEnabled="false" updateTrigger="mbean"/>
+  <applicationMonitor dropinsEnabled="false" />
 
   <logging traceSpecification="*=info:org.gameontext.*=all:net.wasdev.*=all"/>
 

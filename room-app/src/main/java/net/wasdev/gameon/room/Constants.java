@@ -15,25 +15,30 @@
  *******************************************************************************/
 package net.wasdev.gameon.room;
 
+import java.util.Arrays;
+import java.util.Collection;
+
 public interface Constants {
-    // A field enum or just free-form?
-    String USERNAME = "username";
-    String USERID = "userId";
-    String BOOKMARK = "bookmark";
-    String CONTENT = "content";
-    String LOCATION = "location";
-    String TYPE = "type";
-    String NAME = "name";
-    String DESCRIPTION = "description";
-    String EXITS = "exits";
-    String EXITID = "exitId";
-    String STATE = "state";
+  // A field enum or just free-form?
+  String USERNAME = "username";
+  String USERID = "userId";
+  String BOOKMARK = "bookmark";
+  String CONTENT = "content";
+  String LOCATION = "location";
+  String TYPE = "type";
+  String NAME = "name";
+  String DESCRIPTION = "description";
+  String EXITS = "exits";
+  String EXITID = "exitId";
+  String STATE = "state";
 
-    //env var names
-    String ENV_ROOM_SVC = "ROOT_SERVICE_URL";
-    String ENV_MAP_SVC = "MAP_SERVICE_URL";
-    String ENV_MAP_HEALTH_SVC = "MAP_HEALTH_SERVICE_URL";
+  // env var names
+  String ENV_ROOM_SVC = "ROOT_SERVICE_URL";
+  String ENV_MAP_SVC = "MAP_SERVICE_URL";
+  String ENV_MAP_HEALTH_SVC = "MAP_HEALTH_SERVICE_URL";
 
-    String JNDI_REGISTRATION_SECRET = "mapApiKey";
-    String JNDI_SYSTEM_ID = "systemId";
+  String JNDI_REGISTRATION_SECRET = "mapApiKey";
+  String JNDI_SYSTEM_ID = "systemId";
+  
+  Collection<String> ACTIVE_GROUPS = Arrays.asList(new String[]{"redhat1","redhat2","fbtwitter","default"});
 }

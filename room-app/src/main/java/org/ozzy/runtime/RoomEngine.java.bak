@@ -12,12 +12,9 @@ import org.ozzy.model.Command;
 import org.ozzy.model.Item;
 import org.ozzy.model.Room;
 
-import net.wasdev.gameon.room.LifecycleManager.Holodeck;
-
 public class RoomEngine {
 
   Map<String, Object> globalVars;
-  Map<String,String> commandMap;
   List<Command> globalCommands;
   public Room room;
 
@@ -34,7 +31,6 @@ public class RoomEngine {
   }
 
   public RoomResponseProcessor rrp = new DebugResponseProcessor();
-  public Holodeck holodeck;
 
   public static class DebugResponseProcessor implements RoomResponseProcessor {
     @Override
@@ -44,7 +40,7 @@ public class RoomEngine {
     }
 
     @Override
-    public void roomEvent(String senderId, String s) {
+    public void roomEvent(String s) {
       System.out.println("Message sent to everyone :: " + s);
     }
 
@@ -72,9 +68,9 @@ public class RoomEngine {
       System.out.println("Exit succeeded : " + m + " to " + id);
     }
   }
-
+  
   private String getGameOnIdForRoom(String roomid) {
-    return "ozzy.test." + roomid;
+    return "ozzy.test."+roomid;
   }
 
   private static class ActionFingerprint {
@@ -121,8 +117,7 @@ public class RoomEngine {
     }
   }
 
-  public static void verifyRoom(Map<String, Object> globalVars, List<Command> globalCommands, Room room,
-      PrintWriter pw) {
+  public static void verifyRoom(Map<String, Object> globalVars, List<Command> globalCommands, Room room, PrintWriter pw) {
     Map<String, Object> stateById = new HashMap<String, Object>();
     if (globalVars != null) {
       stateById.putAll(globalVars); // not really state, but handy to pretend it is.
@@ -205,19 +200,18 @@ public class RoomEngine {
     }
   }
 
-  public RoomEngine(Map<String, Object> globalVars, List<Command> globalCommands, Map<String,String> commandMap, Room room) {
+  public RoomEngine(Map<String, Object> globalVars, List<Command> globalCommands, Room room) {
     this.globalVars = globalVars;
     this.globalCommands = globalCommands;
-    this.commandMap = commandMap;
     this.room = room;
     this.commandHandlers = new HashMap<String, CommandHandler>();
     this.stateById = new HashMap<String, Object>();
 
-    // add global state (needed to resolve item names that use this as template).
+    //add global state (needed to resolve item names that use this as template).
     if (globalVars != null) {
       stateById.putAll(globalVars); // not really state, but handy to pretend it is.
     }
-
+    
     // figure out which commands we support.
     if (globalCommands != null) {
       for (Command c : globalCommands) {
@@ -263,9 +257,8 @@ public class RoomEngine {
       for (Item i : room.getItems()) {
         for (Command c : i.getCommands()) {
           String fixedName = i.getName().trim().replace(' ', '-');
-          if (fixedName.contains("{")) {
-            fixedName = substituteVarsInOutput(fixedName, "", "", "").toLowerCase();
-            ;
+          if(fixedName.contains("{")) {
+            fixedName = substituteVarsInOutput(fixedName, "", "", "").toLowerCase();;
           }
           String key = c.getName() + ":" + fixedName;
           // build handler if we've not seen this one yet
@@ -277,9 +270,8 @@ public class RoomEngine {
           if (c.getAliases() != null) {
             for (String alias : c.getAliases()) {
               String aliasFixed = alias.trim().replace(' ', '-');
-              if (aliasFixed.contains("{")) {
-                aliasFixed = substituteVarsInOutput(aliasFixed, "", "", "").toLowerCase();
-                ;
+              if(aliasFixed.contains("{")) {
+                aliasFixed = substituteVarsInOutput(aliasFixed, "", "", "").toLowerCase();;
               }
               String aliaskey = aliasFixed + ":" + fixedName;
               if (!commandHandlers.containsKey(aliaskey)) {
@@ -300,9 +292,9 @@ public class RoomEngine {
           for (String ialias : i.getAliases()) {
             for (Command c : i.getCommands()) {
               String fixedName = ialias.replace(' ', '-');
-              if (fixedName.contains("{")) {
+              if(fixedName.contains("{")) {
                 fixedName = substituteVarsInOutput(fixedName, "", "", "").toLowerCase();
-              }
+              }              
               String key = c.getName() + ":" + fixedName;
               // build handler if we've not seen this one yet
               if (!commandHandlers.containsKey(key)) {
@@ -313,9 +305,8 @@ public class RoomEngine {
               if (c.getAliases() != null) {
                 for (String alias : c.getAliases()) {
                   String aliasFixed = alias.trim().replace(' ', '-');
-                  if (aliasFixed.contains("{")) {
-                    aliasFixed = substituteVarsInOutput(aliasFixed, "", "", "").toLowerCase();
-                    ;
+                  if(aliasFixed.contains("{")) {
+                    aliasFixed = substituteVarsInOutput(aliasFixed, "", "", "").toLowerCase();;
                   }
                   String aliaskey = aliasFixed + ":" + fixedName;
                   if (!commandHandlers.containsKey(aliaskey)) {
@@ -399,8 +390,7 @@ public class RoomEngine {
         if (!i.contains(" ")) {
           System.out.println("ERROR: all instructions in do block are of form \"instruction arg\"");
         } else {
-          String fixedInput = fixItemNameSpaces(i).replaceAll(" +", " ");
-          String parts[] = fixedInput.split(" ");
+          String parts[] = i.split(" ");
           if ("set".equals(parts[0])) {
             parts = i.substring(4).split("=");
             if (!stateById.containsKey(parts[0].trim())) {
@@ -411,12 +401,8 @@ public class RoomEngine {
             }
           } else if ("teleportAll".equals(parts[0])) {
             System.out.println("TELEPORT: '" + parts[1] + "'");
-            // String targetRoom = getGameOnIdForRoom(parts[1].trim());
-            // rrp.exitEvent(playerId, "You enter the next room.. ", "Onwards", "{ name:
-            // \"Onwards\", _id: \"Onwards\", fullName: \"Onwards\", door: \"Onwards\",
-            // connectionDetails: { type: websocket, target:
-            // ws://r410.kozow.com:7778/yamlroom/"+targetRoom+" }}");
-            holodeck.switchRoom(playerId, parts[1]);
+            String targetRoom = getGameOnIdForRoom(parts[1].trim());
+            rrp.exitEvent(playerId, "You enter the next room.. ", "Onwards", "{ name: \"Onwards\", _id: \"Onwards\", fullName: \"Onwards\", door: \"Onwards\", connectionDetails: { type: websocket, target: ws://r410.kozow.com:7778/yamlroom/"+targetRoom+" }}");
           }
         }
       }
@@ -537,14 +523,14 @@ public class RoomEngine {
     if (user != null) {
       user = substituteVarsInOutput(user, args, playerId, playerName);
       userOut = user;
-      // System.out.println("USER: " + user);
+      System.out.println("USER: " + user);
     }
     // any room bound messages?
     String room = chosen.getRoom();
     if (room != null) {
       room = substituteVarsInOutput(room, args, playerId, playerName);
       roomOut = room;
-      // System.out.println("ROOM: " + room);
+      System.out.println("ROOM: " + room);
     }
 
     rrp.playerEvent(playerId, userOut, roomOut);
@@ -567,27 +553,28 @@ public class RoomEngine {
     this.processRoomInput("/" + command, userid, "todo");
   }
 
-  public void setHolodeck(Holodeck h) {
-    this.holodeck = h;
-    this.rrp = h;
+  public void setRoomResponseProcessor(RoomResponseProcessor rrp) {
+    this.rrp = rrp;
   }
 
   /**
    * Accept input from a user, process it appropriately
+   * 
+   * TODO: non sys-out output handling =)
    * 
    * @param roomInput
    * @param playerId
    * @param playerName
    */
   public void processRoomInput(String roomInput, String playerId, String playerName) {
-    System.out.println("ROOMINPUT: " + roomInput);
+    System.out.println("ROOMINPUT: "+roomInput);
     if (!roomInput.startsWith("/")) {
       System.out.println("SAY: " + roomInput);
     } else {
       // drop multiple spaces into singles.
       // swap item names with spaces for item names with hyphens
       String fixedInput = fixItemNameSpaces(roomInput).trim().replaceAll(" +", " ");
-
+      
       // remove /, drop to lowercase
       fixedInput = fixedInput.substring(1).toLowerCase();
       // split by space
@@ -599,25 +586,25 @@ public class RoomEngine {
       if (parts.length == 1) {
         // no args means we can just look for the command
         ch = commandHandlers.get(parts[0]);
-        // remove the command name from the args.
+        // remove the command name from the args. 
         args = fixedInput.substring(fixedInput.indexOf(' ') + 1);
       } else {
         // if we have an arg, see if we have a handler registered for the item/command
         // combo.
         ch = commandHandlers.get(parts[0] + ":" + parts[1]);
         if (ch != null) {
-          // remove the command name and the item name from the args.
+          //remove the command name and the item name from the args.
           args = fixedInput.substring(fixedInput.indexOf(' ') + 1);
-          if (parts.length > 2) {
+          if(parts.length>2) {
             args = args.substring(args.indexOf(' ') + 1);
-          } else {
-            args = "";
+          }else {
+            args="";
           }
         } else {
           // if no item/command combos matched, fall back to seeing if any command
           // handlers exist.
           ch = commandHandlers.get(parts[0]);
-          // only remove the command if we didn't recognise the item.
+          //only remove the command if we didn't recognise the item.
           args = fixedInput.substring(fixedInput.indexOf(' ') + 1);
         }
       }
@@ -630,9 +617,5 @@ public class RoomEngine {
       }
 
     }
-  }
-  
-  public Map<String,String> getCommandMap(){
-    return this.commandMap;
   }
 }

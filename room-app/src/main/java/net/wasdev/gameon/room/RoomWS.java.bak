@@ -57,19 +57,17 @@ import org.ozzy.runtime.RoomEngine;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.Constructor;
 
-import net.wasdev.gameon.room.LifecycleManager.Holodeck;
-
 /**
  * WebSocket endpoint for player's interacting with the room
  */
 public class RoomWS extends Endpoint {
 
-  private final Holodeck holodeck;
+  private final RoomEngine room;
   private final LifecycleManager.SessionRoomResponseProcessor srrp;
   private Map<Session, MessageHandler.Whole<String>> handlersBySession = new ConcurrentHashMap<Session, MessageHandler.Whole<String>>();
 
-  public RoomWS(Holodeck holodeck, LifecycleManager.SessionRoomResponseProcessor srrp) {
-    this.holodeck = holodeck;
+  public RoomWS(RoomEngine room, LifecycleManager.SessionRoomResponseProcessor srrp) {
+    this.room = room;
     this.srrp = srrp;
   }
 
@@ -98,7 +96,7 @@ public class RoomWS extends Endpoint {
   @Counted(name = "websocket_onOpen_count", monotonic = true, reusable = true, tags = "label=websocket")
   @Metered(name = "websocket_onOpen_meter", reusable = true, tags = "label=websocket")
   public void onOpen(final Session session, EndpointConfig ec) {
-    Log.log(Level.FINE, this, "onOpen called against holodeck");
+    Log.log(Level.FINE, this, "onOpen called against room " + this.room.getId());
 
     // send ack
     try {
@@ -128,7 +126,7 @@ public class RoomWS extends Endpoint {
     session.addMessageHandler(String.class, chosen);
 
     // session debug.
-    Log.log(Level.FINE, this, "after opOpen room ");
+    Log.log(Level.FINE, this, "after opOpen room " + this.room.getId());
     debugDumpSessionInfo();
   }
 
@@ -144,7 +142,7 @@ public class RoomWS extends Endpoint {
         if (m instanceof SessionMessageHandler) {
           SessionMessageHandler smh = (SessionMessageHandler) m;
           Log.log(Level.FINE, this, "    [" + mhc + "] SessionMessageHandler for session " + smh.session.getId()
-              + " linked to holodeck");
+              + " linked to room " + smh.owner.room.getId());
         } else {
           Log.log(Level.FINE, this, "    [" + mhc + "] unknown handler");
         }
@@ -167,7 +165,7 @@ public class RoomWS extends Endpoint {
       session.removeMessageHandler(handler);
     }
 
-    Log.log(Level.FINE, this, "onClose called against holodeck");
+    Log.log(Level.FINE, this, "onClose called against room " + this.room.getId());
     for (Session s : srrp.getSessions()) {
       Log.log(Level.FINE, this, " Session: " + s.getId());
       Log.log(Level.FINE, this, "   handlers: " + s.getMessageHandlers().size());
@@ -176,7 +174,7 @@ public class RoomWS extends Endpoint {
         if (m instanceof SessionMessageHandler) {
           SessionMessageHandler smh = (SessionMessageHandler) m;
           Log.log(Level.FINE, this, "    [" + mhc + "] SessionMessageHandler for session " + smh.session.getId()
-              + " linked to holodeck");
+              + " linked to room " + smh.owner.room.getId());
         } else {
           Log.log(Level.FINE, this, "    [" + mhc + "] unknown handler");
         }
@@ -190,7 +188,7 @@ public class RoomWS extends Endpoint {
   @Counted(name = "receiveMessage_count", monotonic = true, reusable = true, tags = "label=websocket")
   @Metered(name = "receiveMessage_meter", reusable = true, tags = "label=websocket")
   public void receiveMessage(String message, Session session) throws IOException {
-    Log.log(Level.FINE, this, "ROOMX: [{0}:{1}] sess[{2}:{3}] : {4}", this.hashCode(), "holodeck",
+    Log.log(Level.FINE, this, "ROOMX: [{0}:{1}] sess[{2}:{3}] : {4}", this.hashCode(), this.room.getId(),
         session.hashCode(), session.getId(), message);
     String[] contents = Message.splitRouting(message);
     if (contents[0].equals("roomHello")) {
@@ -205,7 +203,7 @@ public class RoomWS extends Endpoint {
       removePlayer(session, contents[2]);
       return;
     }
-    Log.log(Level.SEVERE, this, "Unknown Message Type {0} for room {1} message {2}", contents[0], "holodeck",
+    Log.log(Level.SEVERE, this, "Unknown Message Type {0} for room {1} message {2}", contents[0], room.getId(),
         message);
   }
 
@@ -275,9 +273,33 @@ public class RoomWS extends Endpoint {
     String content = Message.getValue(msg.get("content"));
     String userid = Message.getValue(msg.get(Constants.USERID));
 
-    if ("/ydebug reload".equals(content.toLowerCase())) {
+    if ("/ydebug commands".equals(content.toLowerCase())) {
+      String ymsg = "DEBUG: I know the following commands\n";
+      for (String key : room.commandHandlers.keySet()) {
+        ymsg += "* **" + key + "**\n";
+      }
+      srrp.playerEvent(userid, ymsg, null);
+    } else if ("/ydebug items".equals(content.toLowerCase())) {
+      String ymsg = "DEBUG: I know the following items in this room\n";
+      if (room.room.getItems() != null) {
+        for (Item i : room.room.getItems()) {
+          ymsg += "* **" + i.getName() + "**\n";
+        }
+      }
+      srrp.playerEvent(userid, ymsg, null);
+    } else if ("/ydebug state".equals(content.toLowerCase())) {
+      String ymsg = "DEBUG: I know the following state vars\n";
+      if (room.stateById.size() > 0) {
+        for (Map.Entry<String, Object> kv : room.stateById.entrySet()) {
+          ymsg += "* **" + kv.getKey() + "** -> " + kv.getValue() + "\n";
+        }
+      }
+      srrp.playerEvent(userid, ymsg, null);
+    } else if ("/ydebug actionmap".equals(content.toLowerCase())) {
+      srrp.playerEvent(userid, "DEBUG: actionmap currently has " + room.actionMap.size() + " entries.", null);
+    } else if ("/ydebug reload".equals(content.toLowerCase())) {
       srrp.playerEvent(userid, "DEBUG: Reload Requested.. parsing new yaml & checking for issues", null);
-      InputStream is = readFromHttp("https://raw.githubusercontent.com/suehle/gameon-yaml-driven-room/main/roomyaml-all-br"); //TODO: CONFIG!!
+      InputStream is = readFromHttp("https://raw.githubusercontent.com/suehle/gameon-yaml-driven-room/main/roomyaml-all-br");
       try {
         Story s = parseYaml(is);
         StringWriter sw = new StringWriter();
@@ -299,8 +321,9 @@ public class RoomWS extends Endpoint {
         srrp.playerEvent(userid, "DEBUG: Error processing yaml: \n\n  "+sw.toString(), null);
       }
     } else {
+
       if (content.startsWith("/")) {
-        holodeck.command(userid, content.substring(1));
+        room.command(userid, content.substring(1));
       } else {
         String username = Message.getValue(msg.get(Constants.USERNAME));
         if (username == null) {
@@ -308,7 +331,7 @@ public class RoomWS extends Endpoint {
           username = userid;
         }
         // everything else is chat.
-				srrp.chatEvent(userid, username, content);
+        srrp.chatEvent(username, content);
       }
     }
   }
@@ -324,12 +347,11 @@ public class RoomWS extends Endpoint {
     String username = Message.getValue(msg.get(Constants.USERNAME));
     String userid = Message.getValue(msg.get(Constants.USERID));
 
-    Log.log(Level.INFO, this, "*** Adding player {0} from room {1} via session {2}", userid, "holodeck",
+    Log.log(Level.INFO, this, "*** Adding player {0} from room {1} via session {2}", userid, room.getId(),
         session.getId());
-    //link the session before using the holodeck =)
-    srrp.linkSessionWithPlayer(session, userid);
-    
-    holodeck.addUserToRoom(userid, username);
+
+    room.addUserToRoom(userid, username);
+    room.command(userid, "look");
   }
 
   @Traced
@@ -339,11 +361,9 @@ public class RoomWS extends Endpoint {
   private void removePlayer(Session session, String json) throws IOException {
     JsonObject msg = Json.createReader(new StringReader(json)).readObject();
     String userid = Message.getValue(msg.get(Constants.USERID));
-    Log.log(Level.INFO, this, "*** Removing player {0} from room {1} via session {2}", userid, "holodeck",
+    Log.log(Level.INFO, this, "*** Removing player {0} from room {1} via session {2}", userid, room.getId(),
         session.getId());
-		
-		srrp.unlinkSessionFromPlayer(session,  userid);
-		holodeck.removeUserFromRoom(userid);
+    room.removeUserFromRoom(userid);
   }
 
   @Override
