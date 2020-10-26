@@ -41,4 +41,5 @@ public interface Constants {
   String JNDI_SYSTEM_ID = "systemId";
   
   Collection<String> ACTIVE_GROUPS = Arrays.asList(new String[]{"redhat1","redhat2","fbtwitter","default"});
+  String ROOM_ID = "ozzy.test.colab";
 }

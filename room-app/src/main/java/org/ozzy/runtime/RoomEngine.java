@@ -6,19 +6,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.kafka.common.utils.CopyOnWriteMap;
 import org.ozzy.model.Action;
 import org.ozzy.model.Command;
 import org.ozzy.model.Item;
 import org.ozzy.model.Room;
 
+import net.wasdev.gameon.room.Constants;
 import net.wasdev.gameon.room.LifecycleManager.Holodeck;
 
 public class RoomEngine {
-
   Map<String, Object> globalVars;
   Map<String,String> commandMap;
   List<Command> globalCommands;
+  String id;
+  String revision;
+  String groupId;
   public Room room;
 
   public Map<String, CommandHandler> commandHandlers;
@@ -26,7 +31,7 @@ public class RoomEngine {
   public Map<ActionFingerprint, Integer> actionMap = new HashMap<ActionFingerprint, Integer>();
 
   public String getId() {
-    return getGameOnIdForRoom(room.getId());
+    return Constants.ROOM_ID+"."+groupId;
   }
 
   public String getName() {
@@ -205,13 +210,23 @@ public class RoomEngine {
     }
   }
 
-  public RoomEngine(Map<String, Object> globalVars, List<Command> globalCommands, Map<String,String> commandMap, Room room) {
+  public RoomEngine(
+      Map<String, Object> globalVars, 
+      List<Command> globalCommands, 
+      Map<String,String> commandMap, 
+      String id,
+      String revision,
+      String groupId,
+      Room room) {
     this.globalVars = globalVars;
     this.globalCommands = globalCommands;
     this.commandMap = commandMap;
     this.room = room;
     this.commandHandlers = new HashMap<String, CommandHandler>();
     this.stateById = new HashMap<String, Object>();
+    this.id=id;
+    this.revision=revision;
+    this.groupId=groupId;
 
     // add global state (needed to resolve item names that use this as template).
     if (globalVars != null) {
@@ -348,6 +363,10 @@ public class RoomEngine {
 
   }
 
+  public String getVersionInfoString() {
+    return "id:"+String.valueOf(this.id)+" rev:"+String.valueOf(this.revision);
+  }
+  
   /**
    * Replace instances of item names with spaces, with item names with hyphens
    * 
@@ -555,16 +574,15 @@ public class RoomEngine {
 
   }
 
-  public void addUserToRoom(String userid, String username) {
-
+  public synchronized void addUserToRoom(String userid, String username) {
   }
 
-  public void removeUserFromRoom(String userid) {
-
+  public synchronized void removeUserFromRoom(String userid) {
   }
 
   public void command(String userid, String command) {
-    this.processRoomInput("/" + command, userid, "todo");
+    String username = holodeck.userIdToUserName(userid);
+    this.processRoomInput("/" + command, userid, username);
   }
 
   public void setHolodeck(Holodeck h) {
@@ -623,7 +641,7 @@ public class RoomEngine {
       }
       // did we find something to use?
       if (ch == null) {
-        rrp.playerEvent(playerId, "USER: I'm sorry, I don't understand '" + roomInput + "'", null);
+        rrp.playerEvent(playerId, "I'm sorry, I don't understand '" + roomInput + "'", null);
       } else {
         // yes! send the input to the handler.
         processCommand(ch, parts, args, playerId, playerName);

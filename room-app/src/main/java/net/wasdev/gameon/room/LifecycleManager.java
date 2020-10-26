@@ -54,6 +54,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.apache.kafka.common.utils.CopyOnWriteMap;
 import org.gameontext.signed.SignedRequestHmac;
 import org.gameontext.signed.SignedRequestMap;
 import org.ozzy.model.Item;
@@ -94,6 +95,8 @@ public class LifecycleManager implements ServerApplicationConfig {
       synchronized(session) {
         if(session.isOpen())
           session.getBasicRemote().sendText(msg);
+        else
+          System.out.println("CLOSED SESSION DETECTED DURING PE SEND!"); 
       }
     }
 
@@ -115,9 +118,9 @@ public class LifecycleManager implements ServerApplicationConfig {
       int count = counter.incrementAndGet();
 
       String groupId = getGroupForPlayerId(senderId);
-      System.out.println("Have group "+groupId+" for sender "+senderId);
       Collection<Session> sessionsForGroup = sessionMap.get(groupId);
-      System.out.println("I know of "+sessionsForGroup.size()+" sessions for this group, sending to them now. ");
+      
+      System.out.println("DEBUG: SEND PE{"+senderId+":"+groupId+"} to "+sessionsForGroup.size()+" sessions.\n   U: "+selfMessage+"\n   R: "+othersMessage);
       for (Session s : sessionsForGroup) {
         try {
           generateEvent(s, json, senderId, selfOnly, count);
@@ -226,13 +229,16 @@ public class LifecycleManager implements ServerApplicationConfig {
       
       String groupId = getGroupForPlayerId(senderId);
       Collection<Session> sessionsForGroup = sessionMap.get(groupId);
+      
+      System.out.println("DEBUG: SEND LE{"+senderId+":"+groupId+"} to "+sessionsForGroup.size()+" sessions.\n Room:"+roomId+" Name:"+roomName);
       for (Session session : sessionsForGroup) {
         try {
           Log.log(Level.FINE, this, "ROOM(LE): sending to session {0} messsage {1}", session.getId(), msg);
-          session.getBasicRemote().sendText(msg);
           synchronized(session) {
             if(session.isOpen())
               session.getBasicRemote().sendText(msg);
+            else
+              System.out.println("CLOSED SESSION DETECTED DURING LE SEND!");
           }
         } catch (IOException io) {
           throw new RuntimeException(io);
@@ -274,7 +280,6 @@ public class LifecycleManager implements ServerApplicationConfig {
       } else if (playerId.startsWith("story:colab:")) {
         groupId = playerId.substring(0, playerId.lastIndexOf(':'));
       }
-      System.out.println("DEBUG: playerId " + playerId + " mapped to group " + groupId);
       return groupId;
     }
 
@@ -385,11 +390,9 @@ public class LifecycleManager implements ServerApplicationConfig {
 
     Set<ServerEndpointConfig> endpoints = new HashSet<ServerEndpointConfig>();
 
-    // new plan.. only 1 room to register, and it's magic. Yes really. Magic. Do not
-    // ask.
-    RegistrationRoom room = new RegistrationRoom("ozzy.test.colab", "The Colab Adventure Room"); // TODO: externalise
+    // Only 1 room to register, and it's magic. Yes really. Magic. Do not ask.
+    RegistrationRoom room = new RegistrationRoom(Constants.ROOM_ID, "The Colab Adventure Room"); // TODO: externalise
                                                                                                  // config.
-
     RoomRegistrationHandler roomRegistration = new RoomRegistrationHandler(room, systemId, registrationSecret);
     try {
       roomRegistration.performRegistration();
@@ -439,10 +442,14 @@ public class LifecycleManager implements ServerApplicationConfig {
     String startId;
     Map<String, RoomEngine> activeRoomEngineByGroupId;
     Map<String, Collection<String>> useridsByGroupId;
+    Map<String, AtomicInteger> userIdToCount;
+    Map<String, String> userIdToNameMap;
     
     public Holodeck(Map<String, Map<String, RoomEngine>> holodeckPrograms, String startId ) {
       this.holodeckProgramsByGroupId = holodeckPrograms;
       this.startId = startId;
+      this.userIdToCount = new CopyOnWriteMap<>();
+      this.userIdToNameMap = new CopyOnWriteMap<>();
       
       activeRoomEngineByGroupId = new ConcurrentHashMap<>();
       for(String key : holodeckProgramsByGroupId.keySet()) {
@@ -481,17 +488,6 @@ public class LifecycleManager implements ServerApplicationConfig {
           commands.put("/"+c.getKey(), c.getValue());
         }
       }
-      
-      //handy for debug.. gives away too much for real use.
-//      for( String e : re.commandHandlers.keySet() ) {
-//        if(e.contains(":")) {
-//          String parts[] = e.split(":");
-//          commands.putIfAbsent(parts[0], "");
-//          String current = commands.get(parts[0]);
-//          if(current.length()>0) { current+=","+parts[1]; }else {current=parts[1];}
-//          commands.put(parts[0], current);
-//        }
-//      }
 
       srrp.locationEvent(userid, re.getId(), re.getName(), "", exits, items, inventory, commands);
     }
@@ -508,9 +504,11 @@ public class LifecycleManager implements ServerApplicationConfig {
           
           Collection<String> userIdsForGroup = useridsByGroupId.get(groupId);
           if(userIdsForGroup!=null) {
+            System.out.println("DEBUG: processing switch room for "+userid+" in group "+groupId);
             for(String userInGroup : userIdsForGroup) {
+              //System.out.println("DEBUG: Sending new room text for "+userInGroup+" in group "+groupId);
               sendNewRoomText(userInGroup, re);
-              //re.processRoomInput("/look", userInGroup, playerName);
+              //System.out.println("DEBUG: Internally requesting /look for "+userInGroup+" in group "+groupId);
               command(userInGroup, "look");
             }
           }
@@ -523,6 +521,10 @@ public class LifecycleManager implements ServerApplicationConfig {
       
     }
     
+    public String userIdToUserName(String userid) {
+      return userIdToNameMap.getOrDefault(userid,"Someone");
+    }
+    
     public void command(String userid, String content) {
       
       String groupId = srrp.getGroupForPlayerId(userid);
@@ -530,7 +532,10 @@ public class LifecycleManager implements ServerApplicationConfig {
       RoomEngine activeProgram = activeRoomEngineByGroupId.get(groupId);
       System.out.println("Obtained RoomEngine "+activeProgram.getName()+" for groupId "+groupId);
       
-      if ("ydebug commands".equals(content.toLowerCase())) {
+      if("ydebug info".equals(content.toLowerCase())) {
+        String ymsg = "DEBUG: Yaml Room info.. \n Id: "+activeProgram.getVersionInfoString();
+        srrp.playerEvent(userid, ymsg, null);
+      } else if ("ydebug commands".equals(content.toLowerCase())) {
         String ymsg = "DEBUG: I know the following commands\n";
         for (String key : activeProgram.commandHandlers.keySet()) {
           ymsg += "* **" + key + "**\n";
@@ -572,6 +577,13 @@ public class LifecycleManager implements ServerApplicationConfig {
     
     public void addUserToRoom(String userid, String username) {
       String groupId = srrp.getGroupForPlayerId(userid);
+      System.out.println("DEBUG: Adding user to room for  "+userid+" in group "+groupId);
+      
+      userIdToNameMap.put(userid,username);
+      AtomicInteger idCount = new AtomicInteger(0);
+      userIdToCount.putIfAbsent(userid,idCount);
+      userIdToCount.get(userid).getAndIncrement();
+      
       RoomEngine activeProgram = activeRoomEngineByGroupId.get(groupId);
       activeProgram.addUserToRoom(userid, username);
       
@@ -579,7 +591,9 @@ public class LifecycleManager implements ServerApplicationConfig {
       Collection<String> userids = useridsByGroupId.get(groupId);
       userids.add(userid);
       
+      System.out.println("DEBUG: Sending new room text as part of room join, to  "+userid+" in group "+groupId);
       sendNewRoomText(userid, activeProgram);
+      System.out.println("DEBUG: Sending /look as part of room join, to  "+userid+" in group "+groupId);
       command(userid, "look");
     }
 
@@ -590,7 +604,15 @@ public class LifecycleManager implements ServerApplicationConfig {
       
       Collection<String> userids = useridsByGroupId.get(groupId);
       if(userids!=null) {
-        userids.add(userid);
+        userids.remove(userid);
+      }
+      
+      if(userIdToCount.containsKey(userid)) {
+        int count = userIdToCount.get(userid).getAndDecrement();
+        if(count<=1) {
+          userIdToCount.remove(userid);
+          userIdToNameMap.remove(userid);
+        }
       }
     }
     
@@ -632,7 +654,7 @@ public class LifecycleManager implements ServerApplicationConfig {
         Map<String, RoomEngine> rooms = new HashMap<>();
         if (s.getRooms() != null) {
           for (Room r : s.getRooms()) {
-            RoomEngine re = new RoomEngine(s.getVars(), s.getCommands(), s.getCommanddescriptions(), r);
+            RoomEngine re = new RoomEngine(s.getVars(), s.getCommands(), s.getCommanddescriptions(), s.getId(), s.getRevision(), g, r);
             rooms.put(r.getId(), re);
           }
         }

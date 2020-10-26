@@ -5,8 +5,9 @@ import java.util.Map;
 
 public class Story {
   private Map<String, Object> vars;
-  private Map<String, String> commandDescriptions;
+  private Map<String, String> commanddescriptions;
   private String id;
+  private String revision;
   private List<Command> commands;
   private List<Room> rooms;
 
@@ -20,11 +21,11 @@ public class Story {
   
 
   public Map<String, String> getCommanddescriptions() {
-    return commandDescriptions;
+    return commanddescriptions;
   }
 
-  public void setCommanddescriptions(Map<String, String> commandDescriptions) {
-    this.commandDescriptions = commandDescriptions;
+  public void setCommanddescriptions(Map<String, String> commanddescriptions) {
+    this.commanddescriptions = commanddescriptions;
   }
 
   public String getId() {
@@ -33,6 +34,14 @@ public class Story {
 
   public void setId(String id) {
     this.id = id;
+  }
+
+  public String getRevision() {
+    return revision;
+  }
+
+  public void setRevision(String revision) {
+    this.revision = revision;
   }
 
   public List<Command> getCommands() {
